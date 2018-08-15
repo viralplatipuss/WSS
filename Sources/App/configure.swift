@@ -1,33 +1,51 @@
-import FluentSQLite
 import Vapor
+
+class GameServer {
+    let queue = DispatchQueue(label: "hi")
+    var sockets = [WebSocket]()
+    var text = ""
+}
+
+let gameServer = GameServer()
+
+
+func fire() {
+    gameServer.queue.asyncAfter(deadline: DispatchTime.now() + (1.0 / 6.0), execute: {
+        
+        var message = "."
+        if !gameServer.text.isEmpty {
+            message = gameServer.text
+            gameServer.text = ""
+        }
+        
+        for socket in gameServer.sockets {
+            socket.send(message)
+        }
+        
+        fire()
+    })
+}
 
 /// Called before your application initializes.
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
-    /// Register providers first
-    try services.register(FluentSQLiteProvider())
-
-    /// Register routes to the router
-    let router = EngineRouter.default()
-    try routes(router)
-    services.register(router, as: Router.self)
-
-    /// Register middleware
-    var middlewares = MiddlewareConfig() // Create _empty_ middleware config
-    /// middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
-    middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
-    services.register(middlewares)
-
-    // Configure a SQLite database
-    let sqlite = try SQLiteDatabase(storage: .memory)
-
-    /// Register the configured SQLite database to the database config.
-    var databases = DatabasesConfig()
-    databases.add(database: sqlite, as: .sqlite)
-    services.register(databases)
-
-    /// Configure migrations
-    var migrations = MigrationConfig()
-    migrations.add(model: Todo.self, database: .sqlite)
-    services.register(migrations)
-
+ 
+    //    let serverConfig = NIOServerConfig.default(hostname: "127.0.0.1")
+    //    services.register(serverConfig)
+    
+    let wss = NIOWebSocketServer.default()
+    
+    wss.get("echo") { ws, req in
+        
+        gameServer.sockets.append(ws)
+        
+        ws.onText { ws, text in
+            gameServer.text.append("\(text),")
+        }
+        
+    }
+    
+    // Register our server
+    services.register(wss, as: WebSocketServer.self)
+    
+    fire()
 }
