@@ -10,7 +10,7 @@ let gameServer = GameServer()
 
 
 func fire() {
-    gameServer.queue.asyncAfter(deadline: DispatchTime.now() + (1.0 / 6.0), execute: {
+    gameServer.queue.asyncAfter(deadline: DispatchTime.now() + 0.5, execute: {
         
         var message = "."
         if !gameServer.text.isEmpty {
